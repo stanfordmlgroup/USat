@@ -1,0 +1,18 @@
+torch==1.12.1+cu113
+-f https://download.pytorch.org/whl/torch_stable.html
+torchaudio==0.12.1+cu113
+-f https://download.pytorch.org/whl/torch_stable.html
+torchvision==0.13.1+cu113
+-f https://download.pytorch.org/whl/torch_stable.html
+matplotlib==3.6.0
+pytorch-lightning==1.7.7
+fire==0.4.0
+notebook==6.4.12 # For dev work only
+timm==0.6.12
+pandas==2.0.1
+torchinfo==1.7.1 # view net work arch
+wandb==0.13.4
+opencv-python==4.6.0.66
+torchmetrics==0.11.0
+torchgeo==0.4.1
+geojson==3.0.1

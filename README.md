@@ -14,7 +14,19 @@ TBD
 TBD
 
 ## Environment Set-up
-TBD
+Performing the following step in `USat` directory. 
+1. Create a Python 3.9 conda enviroment.
+```bash
+conda create -n usat python=3.9
+```
+2. Install dependency
+```bash
+pip install -r requirements.txt
+```
+3. Editable install the project code.
+```bash
+pip install --no-deps -e ./
+```
 
 ## Data Preprocessing
 TBD
