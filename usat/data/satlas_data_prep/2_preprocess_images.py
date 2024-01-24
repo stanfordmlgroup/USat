@@ -1,7 +1,3 @@
-"""
-This script preprocess all images and segmentation labels and saves to file using a dataloader instance
-"""
-
 import os
 import sys
 import cv2

@@ -4,43 +4,6 @@ import json
 import sys
 from satlas_utils import have_all_bands, covered_by_naip, geo_to_mercator, mercator_to_geo
 
-'''
-The raw Satlas root path
-SATLAS_DATA_PATH
-    | train
-        | highres
-            | UUID
-                | tci
-                    | grid.png
-        | images
-            | UUID
-                | b05
-                | ... 
-                    | grid.png
-    | val
-    | train_labels
-    | val_labels
-    | metadata
-
-
-Root path of the processed dataset
-USAT_DATA_PATH
-    | train
-        | highres_resized
-            | UUID
-                | tci
-                    | grid.png
-        | s2_cropped_resized
-            | UUID
-                | b05
-                | ...
-                    | grid.png
-        | land_cover_cropped_resized
-            | grid.png
-    | val
-
-'''
-
 
 
 if __name__ == '__main__':
