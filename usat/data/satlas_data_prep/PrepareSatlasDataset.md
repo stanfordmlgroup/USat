@@ -2,7 +2,7 @@ Download the beta version of Satlas images (NAIP and Sentinel-2) and labels:
 https://github.com/allenai/satlas/blob/3132ad62dae50f18306f777bbbb32c96a82ab4c8/README.md
 
 Structure of the downloaded Satlas data:
-
+```{r}
 SATLAS_DATA_PATH/
     train/
         images/
@@ -28,11 +28,11 @@ SATLAS_DATA_PATH/
             airplane_325/
     val_labels/
         ...
-
+```
 
 
 Structure of the processed USat Satlas data:
-
+```{r}
 USAT_DATA_PATH/
     train/
         s2_cropped_resized/
@@ -54,6 +54,6 @@ USAT_DATA_PATH/
         ...
     paired_metadata_multilabel.csv
     paired_metadata_val_multilabel.csv
-
+```
 
 To run the data preparation code, change the top three variables in run_satlas_prep.sh to be the input and destination path, and number of workers for multi-processing. 
