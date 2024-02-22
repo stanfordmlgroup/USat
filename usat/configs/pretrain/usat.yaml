@@ -1,0 +1,77 @@
+exp_name: PT_SatlasFull_yes_super_yes_group_no_sensor_USatMAE_group
+version: 0
+task: USatMAE
+random_seed: 42
+
+mixed_precision: True
+
+training:
+  batch_size: 16
+  # train loader
+  train_loader_worker: 8
+  eval_loader_worker: 8
+  #optimizer
+  optimizer: "AdamW"
+  optimizer_cfg:
+    lr: 0.00015
+    weight_decay: 0.05
+  warmup_epoch: 5
+  trainer:
+    # GPU config
+    gpus: 10
+    strategy: ddp
+    unused_params: False
+    # Logging config
+    save_dir: /deep2/group/aicc-bootcamp/self-sup/results/pretraining
+    # Callbacks
+    save_top_k: -1 # checkpointing
+    monitor_metric: Train/epoch_avg_loss
+    monitor_mode: min
+    patience: 25 # early stop
+    # Misc
+    gradient_clip_val: 0.5
+    limit_train_batches: 1.0
+    enable_model_summary: False
+    max_epochs: 25
+  mae:
+    mask_ratio: 0.75
+    log_img_per_steps: 250
+
+
+dataset:
+  name: SatlasDataset
+  train_args:
+    ground_cover: 320
+    base_path: /scr/satlas_full
+    split: 'train'
+    standardize: True
+    pretrain: True
+    pad: True
+    discard_bands: []
+    data_percent: 1.0
+
+
+models:
+  mae:
+    type: usat_mae_large_no_prod_embed
+    args:
+      input_parmas:
+        ground_cover: 1280
+        groups: [['NAIP:Red','NAIP:Green','NAIP:Blue'],['S2:Red','S2:Green','S2:Blue','S2:NIR'],['S2:RE1','S2:RE2','S2:RE3'],['S2:SWIR1','S2:SWIR2']]
+        NAIP:Red: {'GSD': 1, 'num_patch': 80}
+        NAIP:Green: {'GSD': 1, 'num_patch': 80}
+        NAIP:Blue: {'GSD': 1, 'num_patch': 80}
+        S2:Red: {'GSD': 10, 'num_patch': 16}
+        S2:Green: {'GSD': 10, 'num_patch': 16}
+        S2:Blue: {'GSD': 10, 'num_patch': 16}
+        S2:NIR: {'GSD': 10, 'num_patch': 16}
+        S2:RE1: {'GSD': 20, 'num_patch': 8}
+        S2:RE2: {'GSD': 20, 'num_patch': 8}
+        S2:RE3: {'GSD': 20, 'num_patch': 8}
+        S2:SWIR1: {'GSD': 20, 'num_patch': 8}
+        S2:SWIR2: {'GSD': 20, 'num_patch': 8}
+        aggr_type: "mean"
+        masking_schema:
+          spatial: "random"
+          spectral: "all"
+        use_superposition_encoding: True

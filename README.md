@@ -11,7 +11,31 @@ Official implementation of the paper "[USat: A Unified Self-Supervised Encoder f
 TBD
 
 ## Data Downloading
-TBD
+### USatlas
+
+### METER-ML
+The METER-ML dataset can be downloaded here: https://stanfordmlgroup.github.io/projects/meter-ml/. After downloading,
+structure the dataset as follows:
+- top_level_dir/
+    - README
+    - train_dataset.geojson
+    - train_images/
+        - train_images_1/
+        - train_images_2/
+        - train_images_3/
+    - val_dataset.geojson
+    - val_images/
+    - test_dataset.geojson
+    - test_images/
+
+### EuroSAT
+The EuroSAT dataset can be found here: https://torchgeo.readthedocs.io/en/latest/api/datasets.html#eurosat. The
+dataset is downloaded automatically when 'download=True' in the config.
+
+### BigEarthNet
+The BigEarthNet (BEN) dataset can be found here: https://torchgeo.readthedocs.io/en/latest/api/datasets.html#bigearthnet. The
+dataset is downloaded automatically when 'download=True' in the config.
+
 
 ## Environment Set-up
 Performing the following step in `USat` directory. 
@@ -32,10 +56,66 @@ pip install --no-deps -e ./
 TBD
 
 ## Model Training
-TBD
+### Pretrain USat on Satlas from Scratch
+```bash
+python main.py train usat/configs/pretrain/usat.yaml
+```
+
+### METER-ML Finetune
+Uncomment and replace the model "ckpt:" line in `usat/configs/downstream/usat_meter_s2.yaml` with
+the pretraind checkpoint of your choice. Then run the following:
+```bash
+python main.py train usat/configs/downstream/usat_meter_s2.yaml
+```
+Uncomment and replace the model "ckpt:" line in `usat/configs/downstream/usat_meter_naip.yaml` with
+the pretraind checkpoint of your choice. Then run the following:
+```bash
+python main.py train usat/configs/downstream/usat_meter_naip.yaml
+```
+
+### EuroSAT
+Uncomment and replace the model "ckpt:" line in `usat/configs/downstream/usat_eurosat.yaml` with
+the pretrained checkpoint of your choice. Then run the following:
+```bash
+python main.py train usat/configs/downstream/usat_eurosat.yaml
+```
+
+### BigEarthNet
+Uncomment and replace the model "ckpt:" line in `usat/configs/downstream/usat_ben.yaml` with
+the pretrained checkpoint of your choice. Then run the following:
+```bash
+python main.py train usat/configs/downstream/usat_ben.yaml
+```
 
 ## Model Evaluation
-TBD
+
+### METER-ML
+Uncomment and replace the "test_ckpt:" line in `usat/configs/downstream/usat_meter_s2.yaml` with
+the finetuned checkpoint to test. Then run the following (first for S2 and then for NAIP):
+```bash
+python main.py test usat/configs/downstream/usat_meter_s2.yaml
+```
+
+Uncomment and replace the "test_ckpt:" line in `usat/configs/downstream/usat_meter_naip.yaml` with
+the finetuned checkpoint to test. Then run the following:
+```bash
+python main.py test usat/configs/downstream/usat_meter_naip.yaml
+```
+
+### EuroSAT
+Uncomment and replace the "test_ckpt:" line in `usat/configs/downstream/usat_ben.yaml` with
+the finetuned checkpoint to test. Then run the following:
+```bash
+python main.py test usat/configs/downstream/usat_eurosat.yaml
+```
+
+### BigEarthNet
+Uncomment and replace the "test_ckpt:" line in `usat/configs/downstream/usat_ben.yaml` with
+the finetuned checkpoint to test. Then run the following:
+```bash
+python main.py test usat/configs/downstream/usat_ben.yaml
+```
+
 
 ## Citation
 TBD

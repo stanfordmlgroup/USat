@@ -1,6 +1,6 @@
 import os
 import random
-from pathlib import Path
+from typing import Callable
 
 import geojson
 import numpy as np
@@ -10,13 +10,15 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 from usat.utils.builder import DATASET
-from usat.utils.sentinel import (SatMAENormalize, MinMaxNormalize, 
-                                     ConsistentRandomCrop, ConsistentRadomHorizontalFlip,
-                                     ConsistentRadomVerticalFlip)
+from usat.utils.sentinel import (SentinelNormalize, MinMaxNormalize, 
+                                 ConsistentRandomCrop, ConsistentRadomHorizontalFlip,
+                                 ConsistentRadomVerticalFlip)
 
 
 @DATASET.register_module()
 class MeterMLDataset(Dataset):
+    """ Dataloader for the METER-ML dataset: https://stanfordmlgroup.github.io/projects/meter-ml/.
+    """
 
     STATS = {
         'sentinel-1': {
@@ -99,38 +101,6 @@ class MeterMLDataset(Dataset):
         }
     }
 
-    PRODUCT_BAND_MAP = {
-        'naip': {
-            0: "NAIP:Red",
-            1: "NAIP:Green",
-            2: "NAIP:Blue",
-            3: "NAIP:NIR"
-        },
-        "sentinel-1": {
-            0: "S1:VV",
-            1: "S1:VH"
-        },
-        "sentinel-2-10m": {
-            0: "S2:Red",
-            1: "S2:Green",
-            2: "S2:Blue",
-            3: "S2:NIR"
-        },
-        "sentinel-2-20m": {
-            0: "S2:RE1",
-            1: "S2:RE2",
-            2: "S2:RE3",
-            3: "S2:RE4",
-            4: "S2:SWIR1",
-            5: "S2:SWIR2",
-        },
-        "sentinel-2-60m": {
-            0: "S2:CoastAerosal",
-            1: "S2:WaterVapor",
-            2: "S2:Cirrus"
-        }
-    }
-
     ALL_BAND_NAMES = [name for _, bands in PRODUCT_BAND_MAP.items() for _, name in bands.items()]
 
     GSDS = {
@@ -151,44 +121,48 @@ class MeterMLDataset(Dataset):
     }
 
     # This directory is missing Sentinel-1 and partial Sentinel-2 data
-    SKIPPED_PATHS = ['train_images/train_images_3/38.8205231_-75.7927729']
+    SKIPPED_PATHS = []
 
     def __init__(self,
                  base_path: str,
                  split: str = 'train',
-                 products: list = ['naip', 'sentinel-1', 'sentinel-2-10m', 'sentinel-2-20m', 'sentinel-2-60m'],
-                 discard_bands: list = [],
                  standardize: bool = True,
-                 full_return: bool = False,
                  ground_cover: int = 240,
-                 data_percent: float = 1.0,
-                 pad: bool = False,
-                 use_satmae: bool = False,
+                 rescale_img: bool = False,
                  image_size: int = 224,
-                 custom_transform = None):
+                 data_percent: float = 1.0,
+                 products: list = ['naip', 'sentinel-1', 'sentinel-2-10m', 'sentinel-2-20m', 'sentinel-2-60m'],
+                 custom_transform: Callable = None,
+                 discard_bands: list = []):
+        """
+        base_path: path to data 
+        split: 'train', 'val', or 'test'
+        standardize: apply normalization based on per-band mean and std
+        ground_cover: square meter ground coverage of image
+        rescale_img: rescale the image or not
+        image_size: if 'rescale_img' is true, rescale to this size, otherwise ignore
+        data_percent: percent of data in the split to use
+        products: which satellite product(s) to use - 'naip', 'sentinel-1', 'sentinel-2-10m', 'sentinel-2-20m', 'sentinel-2-60m'
+        custom_transform: not used
+        discard_bands: bands to discard - e.g. ['NAIP:Red', 'S2:Red']
+        """
 
         # Verify that the products are valid
         assert all(product in ['naip', 'sentinel-1', 'sentinel-2-10m', 'sentinel-2-20m', 'sentinel-2-60m'] for product in products)
         assert all(band in self.ALL_BAND_NAMES for band in discard_bands)
 
-        # Sort products from largest to smallest GSD so that our consistent 
-        # random crop can utilize the same order
-        largest_to_smallest_gsd_products = [product[0] for product in sorted(self.GSDS.items(), key=lambda x: x[1], reverse=True) if product[0] in products]
-
         self.base_path = base_path
-        self.products = largest_to_smallest_gsd_products
         self.split = split
         self.standardize = standardize
-        self.full_return = full_return
         self.ground_cover = ground_cover
-        self.pad = pad
+        self.rescale_img = rescale_img
+        self.image_size = image_size
         self.data_percent = data_percent
+        # Sort products from largest to smallest GSD for our consistent random crop across GSD
+        self.products = [product[0] for product in sorted(self.GSDS.items(), key=lambda x: x[1], reverse=True) if product[0] in products]
         self.discard_bands = discard_bands
 
-        self.use_satmae = use_satmae
-        self.image_size = image_size
-
-        self.custom_transform = self._build_transforms(split == "train", largest_to_smallest_gsd_products)
+        self.custom_transform = self._build_transforms(split == "train")
         self.metadata = self._load_metadata(split)
         self.paths = self._load_paths(split)
 
@@ -200,7 +174,7 @@ class MeterMLDataset(Dataset):
         for feature in metadata['features']:
             folder_name = feature['properties']['Image_Folder']
             label = feature['properties']['Type']
-            # negative & roundabout indicate absence of all classes
+            # Negative & roundabout indicate absence of all classes
             class_idxs = [self.LABEL_MAP[cl.strip()] for cl in label.split("-") if cl.strip() not in ["Negative", "Roundabout"]]
             target = torch.zeros(len(self.LABEL_MAP), dtype=torch.int)
             target[class_idxs] = 1
@@ -220,25 +194,24 @@ class MeterMLDataset(Dataset):
         paths = random.sample(paths, int(self.data_percent * len(paths)))
         return paths
 
-    def _build_transforms(self, is_train, products):
+    def _build_transforms(self, is_train):
         custom_transforms = {}
 
-        # Assume the order is sorted from smallest to largest img_size b/c
-        # we sorted in class init
-        if self.use_satmae:
-            img_sizes = [self.image_size for _ in products]
+        if self.rescale_img:
+            img_sizes = [self.image_size for _ in self.products]
         else:
-            img_sizes = [self.ground_cover / self.GSDS[product] for product in products]
+            img_sizes = [self.ground_cover / self.GSDS[product] for product in self.products]
 
         cons_rand_crop = ConsistentRandomCrop(img_sizes, pad_if_needed=True, padding_mode='constant', fill=0)
         cons_horiz_flip = ConsistentRadomHorizontalFlip(len(img_sizes))
         cons_vertical_flip = ConsistentRadomVerticalFlip(len(img_sizes))
 
-        for idx, product in enumerate(products):
+        for idx, product in enumerate(self.products):
             t = []
-
             if product != "naip":
-                t.append(SatMAENormalize(self.STATS[product]['mean'], self.STATS[product]['std'], scale=255))
+                # The sentinel images are TIFF files, so they need
+                # to be normalized to 0-255 (or 0-1)
+                t.append(SentinelNormalize(self.STATS[product]['mean'], self.STATS[product]['std'], scale=255))
                 mean_key = "2std_mean"
                 std_key = "2std_std"
                 #t.append(MinMaxNormalize(self.STATS[product]['min'], self.STATS[product]['max'], scale=255))
@@ -249,18 +222,15 @@ class MeterMLDataset(Dataset):
                 std_key = "std"
 
             t.append(transforms.ToTensor()) 
-
             if self.standardize:
                 t.append(transforms.Normalize(self.STATS[product][mean_key], self.STATS[product][std_key]))
-
             if is_train:
                 t.append(cons_rand_crop)
                 t.append(cons_horiz_flip)
                 t.append(cons_vertical_flip)
             else:
-                # For each grouped product, we will need a different input size
+                # For each grouped product, we will need a different input size based on orig GSD
                 t.append(transforms.CenterCrop(img_sizes[idx]))
-            
             custom_transforms[product] = transforms.Compose(t)
         return custom_transforms
 
@@ -277,8 +247,6 @@ class MeterMLDataset(Dataset):
         return self.custom_transform[product](img_data)
 
     def __getitem__(self, idx):
-        # The sentinel images appear to be TIFF loaded files, so they need
-        # to be normalized to 0-255 (or 0-1)
         # naip.png -> 4 channel PNG w/ NIR in alpha channel
         # sentinel-1.npy -> 72, 72, 2 (VV, VH)
         # sentinel-2-10m.npy -> 72, 72, 4 (red, green, blue, NIR)
@@ -292,7 +260,6 @@ class MeterMLDataset(Dataset):
         #       the order that we initialized ConsistentRandomTransform so
         #       the correct scale is applied to each image
         for product in self.products:
-            # Break the product into its bands
             img = self._load_img(full_path, product)
             for idx, band_name in self.PRODUCT_BAND_MAP[product].items():
                 if band_name not in self.discard_bands:
@@ -304,25 +271,16 @@ class MeterMLDataset(Dataset):
         else:
             metadata_key = "/".join(img_path.split("/")[-2:])
         label = self.metadata[metadata_key]
-        if self.full_return:
-            return imgs, label, idx
         return imgs, label
 
     def collate_fn(self, batch):
-        if self.full_return:
-            imgs, labels, paths = zip(*batch)
-        else:
-            imgs, labels = zip(*batch)
-
+        imgs, labels = zip(*batch)
         collated_imgs = {}
         for product in self.products:
             for band_name in self.PRODUCT_BAND_MAP[product].values():
                 if band_name not in self.discard_bands:
                     collated_imgs[band_name] = torch.stack([img[band_name] for img in imgs])
         labels = torch.stack(labels)
-
-        if self.full_return:
-            return collated_imgs, labels, paths
         return collated_imgs, labels
 
 
