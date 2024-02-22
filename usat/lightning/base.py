@@ -3,7 +3,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 
-from self_sup.utils.builder import DATASET, MODEL, TASK
+from usat.utils.builder import DATASET, MODEL, TASK
 
 @TASK.register_module()
 class BaseTask(pl.LightningModule):

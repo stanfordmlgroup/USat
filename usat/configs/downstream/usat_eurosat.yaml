@@ -1,0 +1,85 @@
+exp_name: usat_eurosat_ft_s2 
+version: 0
+task: MulticlassClassification
+random_seed: 42
+
+training_method: finetuning
+feature_opt: cls_token
+
+training:
+  batch_size: 5
+  # train loader
+  train_loader_worker: 8
+  eval_loader_worker: 8
+  #optimizer
+  optimizer: "AdamW"
+  optimizer_cfg:
+    lr: 1.0e-5
+    weight_decay: 0.1
+  scheduler: "Cosine"
+  warm_up_epoch: 10
+  trainer:
+    # GPU config
+    gpus: 10
+    strategy: ddp
+    unused_params: False
+    # Logging config
+    save_dir: /deep2/group/aicc-bootcamp/self-sup/results/downstream
+    # Callbacks
+    save_top_k: 1 # checkpointing
+    monitor_metric: Val/epoch_avg_accuracy
+    monitor_mode: max
+    patience: 50 # early stop
+    # Misc
+    gradient_clip_val: 0.5
+    limit_train_batches: 1.0
+    enable_model_summary: False
+    max_epochs: 50
+    #test_ckpt: /replace_with_desired_test_checkpoint
+
+dataset:
+  name: EuroSatDatasetUSat
+  train_args:
+    base_path: /scr/eurosat
+    split: 'train'
+    standardize: True
+    ground_cover: 640
+  eval_args:
+    base_path: /scr/eurosat
+    split: 'val'
+    standardize: True
+    ground_cover: 640
+  test_args:
+    base_path: /scr/eurosat
+    split: 'test'
+    standardize: True
+    ground_cover: 640
+
+models:
+  encoder:
+    type: usat_vit_large_encoder_no_prod_embed
+    ckpt: /deep2/group/aicc-bootcamp/self-sup/results/pretraining/PT_SatlasFull_yes_super_yes_group_no_sensor_USatMAE_group/version_0/ckpt/epoch=24-step=564875.ckpt
+    strict: False
+    target_model: mae
+    args:
+      input_parmas:
+        ground_cover: 1280
+        groups: [['S2:Red', 'S2:Green', 'S2:Blue', 'S2:NIR'], ['S2:RE1', 'S2:RE2', 'S2:RE3', 'S2:RE4'], ['S2:SWIR1', 'S2:SWIR2']]
+        S2:Red: {'GSD': 10, 'num_patch': 16}
+        S2:Green: {'GSD': 10, 'num_patch': 16}
+        S2:Blue: {'GSD': 10, 'num_patch': 16}
+        S2:NIR: {'GSD': 10, 'num_patch': 16}
+        S2:RE1: {'GSD': 20, 'num_patch': 8}
+        S2:RE2: {'GSD': 20, 'num_patch': 8}
+        S2:RE3: {'GSD': 20, 'num_patch': 8}
+        S2:RE4: {'GSD': 20, 'num_patch': 8}
+        S2:SWIR1: {'GSD': 20, 'num_patch': 8}
+        S2:SWIR2: {'GSD': 20, 'num_patch': 8}
+        use_superposition_encoding: True
+      encode_type: concat
+    
+  head:
+    type: ClassifierHead
+    args:
+      input_size: 1024
+      num_classes: 10

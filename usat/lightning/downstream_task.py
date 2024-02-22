@@ -13,7 +13,6 @@ from usat.utils.constants import PROBING, FINETUNING, TRAIN_METHODS
 
 # HACK: reverse this change when standarlization is part of the dataset
 from torchvision.transforms.functional import normalize
-from usat.utils.constants import FMOW_RGB_MEAN, FMOW_RGB_STD
 
 @TASK.register_module()
 class MulticlassClassification (BaseDownstreamTask):
@@ -59,12 +58,7 @@ class MulticlassClassification (BaseDownstreamTask):
         else:
             self.encoder.train()
         
-        # print(self.encoder.layer1[0].conv1.weight[0][0][0][0])
         x, y = batch
-
-        # TODO: to delete - FMOW already standarlize in dataset
-        # # HACK
-        # x = normalize(x, mean=FMOW_RGB_MEAN, std=FMOW_RGB_STD)
 
         if self.mixup_fn:
             x, y = self.mixup_fn(x,y)
@@ -92,9 +86,6 @@ class MulticlassClassification (BaseDownstreamTask):
         self.encoder.eval()
         with torch.no_grad():
             x, y = batch
-            # TODO: to delete - FMOW already standarlize in dataset
-            # # HACK
-            # x = normalize(x, mean=FMOW_RGB_MEAN, std=FMOW_RGB_STD)
             logit = self.forward(x)
             loss = self.criterion(logit, y)
             pred = logit.argmax(1)
@@ -115,9 +106,6 @@ class MulticlassClassification (BaseDownstreamTask):
         self.encoder.eval()
         with torch.no_grad():
             x, y = batch
-            # TODO: to delete - FMOW already standarlize in dataset
-            # # HACK
-            # x = normalize(x, mean=FMOW_RGB_MEAN, std=FMOW_RGB_STD)
             logit = self.forward(x)
             loss = self.criterion(logit, y)
             pred = logit.argmax(1)

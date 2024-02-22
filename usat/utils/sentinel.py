@@ -127,7 +127,10 @@ class ConsistentRadomVerticalFlip(T.RandomVerticalFlip):
         return img
 
 
-class SatMAENormalize(object):
+class SentinelNormalize(object):
+    """ Normalization for Sentinel-2 data adapted from:
+    https://github.com/sustainlab-group/SatMAE/blob/117135b3354fa70a81df453be7f34e3da8b36032/util/datasets.py#L349-L363
+    """
     def __init__(self, mean, std, scale = 255.0):
         self.mean = np.array(mean)
         self.std = np.array(std)
